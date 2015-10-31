@@ -11,9 +11,14 @@ import (
 var wg sync.WaitGroup
 
 func main() {
-	var goStack stack.Go
-	cnt := container.New(&goStack)
+	// New webhook triggered, got repo url etc... from MQ
+	// Instantiate golang stack
+	goStack := stack.NewGolang("latest")
 
+	// Create new contaner from stack
+	cnt := container.New(goStack, "")
+
+	// Run the container
 	cnt.WG.Add(2)
 	go cnt.Run()
 	go cnt.Observe()

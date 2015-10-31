@@ -5,10 +5,10 @@ package container
 import (
 	"fmt"
 	"log"
-	"os/exec"
 	"sync"
 	"time"
 
+	"github.com/goblin-ci/runner/docker"
 	"github.com/goblin-ci/runner/stack"
 )
 
@@ -18,6 +18,7 @@ type Container struct {
 	ID            string
 	Stack         stack.Stack
 	Stream        chan string
+	RepoURL       string
 	BuildCommands []string
 	WG            *sync.WaitGroup
 }
@@ -47,15 +48,21 @@ func (c *Container) Observe() {
 func (c *Container) Run() {
 	defer c.WG.Done()
 	// Start up the container and get it's ID
-	cmd := exec.Command("docker", "run", "-d", c.Stack.ImageName())
-	result, err := cmd.Output()
+	ID, err := docker.RunDetached(c.Stack.ImageName())
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	c.ID = string(result)
+	c.ID = string(ID)
 
 	fmt.Println("Container ID: ", c.ID)
+
+	// TODO
+	// Setup .ssh keys for private repos (priority low)
+	// Clone the repo
+	// Parse yml file
+	// Determine go version and set proper ENV acordingly
+	// Checko for build commands and set them if any
 
 	// Execute build commands and send data to stream
 	if c.Stack.GetBuild() == nil {
@@ -64,10 +71,11 @@ func (c *Container) Run() {
 }
 
 // New creates and intializes new container
-func New(s stack.Stack) *Container {
+func New(s stack.Stack, repoURL string) *Container {
 	return &Container{
-		Stack:  s,
-		Stream: make(chan string),
-		WG:     &sync.WaitGroup{},
+		Stack:   s,
+		Stream:  make(chan string),
+		WG:      &sync.WaitGroup{},
+		RepoURL: repoURL,
 	}
 }
