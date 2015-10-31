@@ -5,12 +5,14 @@ import (
 	"sync"
 
 	"github.com/goblin-ci/runner/container"
+	"github.com/goblin-ci/runner/stack"
 )
 
 var wg sync.WaitGroup
 
 func main() {
-	cnt := container.New("ubuntu")
+	var goStack stack.Go
+	cnt := container.New(&goStack)
 
 	cnt.WG.Add(2)
 	go cnt.Run()

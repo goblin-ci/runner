@@ -8,14 +8,15 @@ import (
 	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/goblin-ci/runner/stack"
 )
 
 // Container represents docker container
 // strucure used for building proces
 type Container struct {
-	ID string
-	// TODO Make stack a separate type, place it in stack package
-	Stack         string
+	ID            string
+	Stack         stack.Stack
 	Stream        chan string
 	BuildCommands []string
 	WG            *sync.WaitGroup
@@ -46,7 +47,7 @@ func (c *Container) Observe() {
 func (c *Container) Run() {
 	defer c.WG.Done()
 	// Start up the container and get it's ID
-	cmd := exec.Command("docker", "run", "-d", c.Stack)
+	cmd := exec.Command("docker", "run", "-d", c.Stack.ImageName())
 	result, err := cmd.Output()
 	if err != nil {
 		log.Println(err)
@@ -57,15 +58,15 @@ func (c *Container) Run() {
 	fmt.Println("Container ID: ", c.ID)
 
 	// Execute build commands and send data to stream
-	if c.BuildCommands == nil {
+	if c.Stack.GetBuild() == nil {
 		return
 	}
 }
 
 // New creates and intializes new container
-func New(stack string) *Container {
+func New(s stack.Stack) *Container {
 	return &Container{
-		Stack:  stack,
+		Stack:  s,
 		Stream: make(chan string),
 		WG:     &sync.WaitGroup{},
 	}
