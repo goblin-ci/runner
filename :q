@@ -2,22 +2,13 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"sync"
 
 	"github.com/goblin-ci/runner/container"
 	"github.com/goblin-ci/runner/stack"
 )
 
-type dummyWriter int
-
-func (d dummyWriter) Write(p []byte) (int, error) {
-	fmt.Println("--- START ---")
-	fmt.Println(string(p))
-	fmt.Println("--- END ---")
-	return len(p), nil
-}
-
-var d dummyWriter
+var wg sync.WaitGroup
 
 func main() {
 	// New webhook triggered, got repo url etc... from MQ
@@ -28,9 +19,10 @@ func main() {
 	cnt := container.New(goStack, "")
 
 	// Run the container
+	cnt.WG.Add(2)
 	go cnt.Run()
-	go cnt.Observe(d)
+	go cnt.Observe()
 
-	log.Println("Waiting for goroutines to finish")
+	fmt.Println("Waiting for goroutines to finish")
 	cnt.WG.Wait()
 }

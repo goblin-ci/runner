@@ -11,12 +11,13 @@ type Golang struct {
 }
 
 func (g *Golang) ImageName() string {
-	return fmt.Sprintf("ubuntu:%s", g.tag)
+	return fmt.Sprintf("uiserve_captainhook:%s", g.tag)
 }
 
 func (g *Golang) DefaultBuild() []string {
 	return []string{
-		"go test ./...",
+		"ge get -t -v ./...",
+		"go test -v -cover ./...",
 	}
 }
 
