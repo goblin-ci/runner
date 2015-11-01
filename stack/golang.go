@@ -16,7 +16,7 @@ func (g *Golang) ImageName() string {
 
 func (g *Golang) DefaultBuild() []string {
 	return []string{
-		"ge get -t -v ./...",
+		"go get -t -v ./...",
 		"go test -v -cover ./...",
 	}
 }

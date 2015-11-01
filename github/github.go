@@ -11,16 +11,21 @@ import (
 // CloneRepo clones github repo
 // provided with internal repo ID
 // TODO take an ID as an argument instead
-func CloneRepo(repo, branch string, w io.Writer) (err error) {
+func CloneRepo(repo, branch, containerID string, w io.Writer) (err error) {
 	args := []string{
+		"exec",
+		containerID,
+		"git",
 		"clone",
-		"--depth 10",
-		fmt.Sprintf("--branch %s", branch),
+		"--depth",
+		"10",
+		"--branch",
+		fmt.Sprintf("%s", branch),
 		repo,
 		"/go/src/goblin/app",
 	}
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("docker", args...)
 	cmd.Stdout = w
 	cmd.Stderr = w
 

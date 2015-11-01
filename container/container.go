@@ -12,19 +12,20 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/goblin-ci/runner/github"
+	"github.com/goblin-ci/runner/github"
 	"github.com/goblin-ci/runner/stack"
 )
 
 // Container represents docker container
 // strucure used for building proces
 type Container struct {
-	ID      string
-	Stack   stack.Stack
-	Stream  chan string
-	Done    chan bool
-	RepoURL string
-	WG      *sync.WaitGroup
+	ID             string
+	Stack          stack.Stack
+	Stream         chan string
+	Done           chan bool
+	RepoURL        string
+	CurrentCommand string
+	WG             *sync.WaitGroup
 }
 
 // runDetached runs container in detached mode
@@ -80,6 +81,9 @@ func (c *Container) remove() error {
 
 // Write makes Container conform to io.Writer
 func (c *Container) Write(p []byte) (n int, err error) {
+	// TODO Create json payloads with
+	// current command, and p as body
+	c.Stream <- "\n>> " + c.CurrentCommand + "\n"
 	c.Stream <- string(p)
 	return len(p), nil
 }
@@ -137,17 +141,26 @@ func (c *Container) Run() {
 	// TODO
 	// Setup .ssh keys for private repos (priority low)
 	// Clone the repo
+	c.CurrentCommand = "Cloning repository..."
+	err = github.CloneRepo("https://github.com/goblin-ci/runner", "dev", c.ID, c)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	// Parse yml file
 	// Determine go version and set proper ENV acordingly
 	// Check for build commands and set them if any
-	c.Stack.SetBuild([]string{
-		"pwd",
-		"ls -l",
-		"cd /go/bin",
-		"ls -1",
-		"ls -l /go/src",
-	})
+
+	/*
+		c.Stack.SetBuild([]string{
+			"pwd",
+			"ls -l",
+			"cd /go/bin",
+			"ls -1",
+			"ls -l /go/src",
+		})
+	*/
 
 	// Execute build commands and send data to stream
 	// Close channel on build error
@@ -158,7 +171,7 @@ func (c *Container) Run() {
 
 	for _, cmd := range build {
 		cmdSlice := strings.Split(cmd, " ")
-
+		c.CurrentCommand = cmd
 		err = c.execInteractive(cmdSlice)
 		if err != nil {
 			c.Stream <- "BUILD FAILED!"

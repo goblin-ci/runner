@@ -11,9 +11,7 @@ import (
 type dummyWriter int
 
 func (d dummyWriter) Write(p []byte) (int, error) {
-	fmt.Println("--- START ---")
 	fmt.Println(string(p))
-	fmt.Println("--- END ---")
 	return len(p), nil
 }
 
