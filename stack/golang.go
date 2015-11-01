@@ -11,7 +11,7 @@ type Golang struct {
 }
 
 func (g *Golang) ImageName() string {
-	return fmt.Sprintf("uiserve_captainhook:%s", g.tag)
+	return fmt.Sprintf("goblin/go:%s", g.tag)
 }
 
 func (g *Golang) DefaultBuild() []string {

@@ -28,9 +28,10 @@ func main() {
 	cnt := container.New(goStack, "")
 
 	// Run the container
+	cnt.WG.Add(2)
 	go cnt.Run()
 	go cnt.Observe(d)
 
-	log.Println("Waiting for goroutines to finish")
+	log.Println("Waiting for build queue to finish")
 	cnt.WG.Wait()
 }

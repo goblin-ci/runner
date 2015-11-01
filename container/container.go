@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/goblin-ci/runner/github"
 	"github.com/goblin-ci/runner/stack"
 )
 
@@ -52,7 +53,10 @@ func (c *Container) run() ([]byte, error) {
 // execInteractive executes command inside of docker container
 // with inearctive output sent to provided io.Writer
 func (c *Container) execInteractive(args []string) error {
-	cm := append([]string{"exec", "-i", c.ID}, args...)
+	cm := append([]string{"exec", c.ID}, args...)
+	if strings.ToLower(args[0]) == "cd" {
+		cm = append([]string{"exec", c.ID, "bash", "-c"}, "'"+strings.Join(args, " ")+"'")
+	}
 	cmd := exec.Command("docker", cm...)
 	cmd.Stdout = c
 	cmd.Stderr = c
@@ -83,7 +87,6 @@ func (c *Container) Write(p []byte) (n int, err error) {
 // Observe listens for container stdout
 // and sends it to string channel
 func (c *Container) Observe(w io.Writer) {
-	c.WG.Add(1)
 	defer func() {
 		err := c.stop()
 		if err != nil {
@@ -114,7 +117,6 @@ func (c *Container) Observe(w io.Writer) {
 // Run starts up the container and
 // runs build commands
 func (c *Container) Run() {
-	c.WG.Add(1)
 	defer func() {
 		c.Done <- true
 		c.WG.Done()
@@ -124,12 +126,13 @@ func (c *Container) Run() {
 	ID, err := c.runDetached()
 	if err != nil {
 		log.Println(err)
+		log.Println("Exiting...")
 		// TODO Close channel
 		return
 	}
 	c.ID = string(ID)
 
-	log.Println("Container ID: ", c.ID)
+	log.Println("New container up and running: ", c.ID)
 
 	// TODO
 	// Setup .ssh keys for private repos (priority low)
@@ -139,9 +142,11 @@ func (c *Container) Run() {
 	// Determine go version and set proper ENV acordingly
 	// Check for build commands and set them if any
 	c.Stack.SetBuild([]string{
+		"pwd",
 		"ls -l",
-		"cd /",
-		"ls -l",
+		"cd /go/bin",
+		"ls -1",
+		"ls -l /go/src",
 	})
 
 	// Execute build commands and send data to stream
@@ -153,6 +158,7 @@ func (c *Container) Run() {
 
 	for _, cmd := range build {
 		cmdSlice := strings.Split(cmd, " ")
+
 		err = c.execInteractive(cmdSlice)
 		if err != nil {
 			c.Stream <- "BUILD FAILED!"

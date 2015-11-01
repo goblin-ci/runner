@@ -3,19 +3,21 @@
 package github
 
 import (
+	"fmt"
 	"io"
 	"os/exec"
 )
 
 // CloneRepo clones github repo
 // provided with internal repo ID
-// TODO tak ID as an argument instead
-func CloneRepo(repo string, w io.Writer) (err error) {
+// TODO take an ID as an argument instead
+func CloneRepo(repo, branch string, w io.Writer) (err error) {
 	args := []string{
 		"clone",
 		"--depth 10",
+		fmt.Sprintf("--branch %s", branch),
 		repo,
-		"/go/src/github.com/app",
+		"/go/src/goblin/app",
 	}
 
 	cmd := exec.Command("git", args...)
