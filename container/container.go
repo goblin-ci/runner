@@ -23,9 +23,9 @@ type Container struct {
 	Stack          stack.Stack
 	Stream         chan string
 	Done           chan bool
-	RepoURL        string
 	CurrentCommand string
 	WG             *sync.WaitGroup
+	Repo           *github.Repo
 }
 
 // runDetached runs container in detached mode
@@ -112,7 +112,7 @@ func (c *Container) Observe(w io.Writer) {
 			log.Println("Observer timeout")
 			return
 		case <-c.Done:
-			log.Println("Build commands completed.")
+			log.Println("Build complete.")
 			return
 		}
 	}
@@ -142,7 +142,8 @@ func (c *Container) Run() {
 	// Setup .ssh keys for private repos (priority low)
 	// Clone the repo
 	c.CurrentCommand = "Cloning repository..."
-	err = github.CloneRepo("https://github.com/goblin-ci/runner", "dev", c.ID, c)
+	cloneCmd := c.Repo.CloneCmd()
+	err = c.execInteractive(cloneCmd)
 	if err != nil {
 		log.Println(err)
 		return
@@ -174,21 +175,22 @@ func (c *Container) Run() {
 		c.CurrentCommand = cmd
 		err = c.execInteractive(cmdSlice)
 		if err != nil {
-			c.Stream <- "BUILD FAILED!"
+			fmt.Fprintf(c, "BUILD FAILED!")
 			log.Println("BUILD FAILED!")
-			log.Println(err)
-			break
+			return
 		}
 	}
+
+	fmt.Fprintf(c, "BUILD SUCCESSFUL")
 }
 
 // New creates and intializes new container
-func New(s stack.Stack, repoURL string) *Container {
+func New(s stack.Stack, repo *github.Repo) *Container {
 	return &Container{
-		Stack:   s,
-		Stream:  make(chan string),
-		Done:    make(chan bool),
-		WG:      &sync.WaitGroup{},
-		RepoURL: repoURL,
+		Stack:  s,
+		Stream: make(chan string),
+		Done:   make(chan bool),
+		WG:     &sync.WaitGroup{},
+		Repo:   repo,
 	}
 }
