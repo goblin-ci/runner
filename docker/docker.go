@@ -82,7 +82,10 @@ func (c *Docker) remove() error {
 func (c *Docker) Write(p []byte) (n int, err error) {
 	// TODO Create json payloads with
 	// current command, and p as body
-	c.Stream <- "\n>> " + c.CurrentCommand + "\n"
+	if c.CurrentCommand != "" {
+		c.Stream <- "\n>> " + c.CurrentCommand + "\n"
+		c.CurrentCommand = ""
+	}
 	c.Stream <- string(p)
 	return len(p), nil
 }
@@ -140,8 +143,8 @@ func (c *Docker) Run() {
 	// TODO
 	// Setup .ssh keys for private repos (priority low)
 	// Clone the repo
-	c.CurrentCommand = "Cloning repository..."
 	cloneCmd := c.Repo.CloneCmd()
+	c.CurrentCommand = strings.Join(cloneCmd, " ")
 	err = c.execInteractive(cloneCmd)
 	if err != nil {
 		log.Println(err)
@@ -174,13 +177,13 @@ func (c *Docker) Run() {
 		c.CurrentCommand = cmd
 		err = c.execInteractive(cmdSlice)
 		if err != nil {
-			fmt.Fprintf(c, "BUILD FAILED!")
+			fmt.Fprintf(c, "\nBUILD FAILED!")
 			log.Println("BUILD FAILED!")
 			return
 		}
 	}
 
-	fmt.Fprintf(c, "BUILD SUCCESSFUL")
+	fmt.Fprintf(c, "\nBUILD SUCCESSFUL")
 }
 
 // New creates and intializes new container
