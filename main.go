@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/goblin-ci/runner/container"
+	"github.com/goblin-ci/runner/docker"
 	"github.com/goblin-ci/runner/github"
 	"github.com/goblin-ci/runner/stack"
 )
@@ -35,7 +35,7 @@ func main() {
 	goStack := stack.NewGolang("latest")
 
 	// Create new contaner from stack
-	cnt := container.New(goStack, &repo)
+	cnt := docker.New(goStack, &repo)
 
 	// Run the container
 	cnt.WG.Add(2)
