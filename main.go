@@ -1,13 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"gopkg.in/redis.v3"
 
 	"github.com/goblin-ci/dispatch"
 	"github.com/goblin-ci/runner/docker"
@@ -15,37 +17,43 @@ import (
 	"github.com/goblin-ci/runner/stack"
 )
 
-type dummyWriter int
+var mq dispatch.PubSuber
 
-func (d dummyWriter) Write(p []byte) (int, error) {
+type fooWriter int
+
+func (f fooWriter) Write(p []byte) (int, error) {
 	fmt.Println(string(p))
 	return len(p), nil
 }
 
-var d dummyWriter
-var mq dispatch.PubSuber
-
 func main() {
+	var fw fooWriter
+
 	mq, err := dispatch.NewRedis("redis:6379")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	stop := make(chan bool, 1)
+	stop := make(chan bool, 2)
 	duration := time.Second * 1
-	recv, err := mq.Subscribe("foo", stop, duration)
+	recv, err := mq.Subscribe("github_webhook_push", stop, duration)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer func() {
-		//stop <- true
+		stop <- true
 	}()
 
-	mq.Publish("foo",
+	mq.Publish(
+		"github_webhook_push",
 		github.Push{
-			RequestID: "askdfjsjf",
-			Branch:    "master",
+			RequestID:  "f28a10b9",
+			Branch:     "master",
+			OwnerName:  "aneshas",
+			OwnerEmail: "anes.hasicic@gmail.com",
+			CloneURL:   "https://github.com/aneshas/guinea-pig",
+			FullName:   "aneshas/guinea-pig",
 		})
 
 	sig := make(chan os.Signal, 1)
@@ -57,11 +65,31 @@ func main() {
 			if !ok {
 				recv = nil
 			}
-			log.Println("New payload")
-			log.Println(payload)
+			msg := payload.(*redis.Message)
+			push := new(github.Push)
+			err := json.Unmarshal([]byte(msg.Payload), &push)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
+			// Instantiate golang stack
+			goStack := stack.NewGolang("latest")
+
+			// Create new contaner from stack
+			cnt := docker.New(goStack, push)
+
+			// Run the container
+			cnt.WG.Add(2)
+			go cnt.Run()
+			go cnt.Observe(fw)
+
+			log.Printf("Waiting for %s queue to finish", push.RequestID)
+			// cnt.WG.Wait()
+
+			log.Println(push)
 		case <-sig:
 			log.Println("OS Signal received, exiting...")
-			stop <- true
 			recv = nil
 		}
 
@@ -70,36 +98,4 @@ func main() {
 		}
 	}
 
-	log.Println("EOP")
-
-	//http.HandleFunc("/", handle)
-	//log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func handle(w http.ResponseWriter, r *http.Request) {
-
-	// Receive json Repo request via MQ
-	// and decode it to Repo struct
-	push := github.Push{
-		RequestID:  "f28a10b9",
-		Branch:     "master",
-		OwnerName:  "aneshas",
-		OwnerEmail: "anes.hasicic@gmail.com",
-		CloneURL:   "https://github.com/aneshas/guinea-pig",
-		FullName:   "aneshas/guinea-pig",
-	}
-
-	// Instantiate golang stack
-	goStack := stack.NewGolang("latest")
-
-	// Create new contaner from stack
-	cnt := docker.New(goStack, &push)
-
-	// Run the container
-	cnt.WG.Add(2)
-	go cnt.Run()
-	go cnt.Observe(w)
-
-	log.Printf("Waiting for %s queue to finish", push.RequestID)
-	cnt.WG.Wait()
 }
