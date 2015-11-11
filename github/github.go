@@ -7,7 +7,7 @@ import (
 )
 
 // Repo represents Github Webhook payload
-type Repo struct {
+type Push struct {
 	RequestID  string `json:"request_id"`
 	Branch     string `json:"branch"`
 	OwnerName  string `json:"owner_name"`
@@ -19,7 +19,7 @@ type Repo struct {
 
 // CloneCmd builds cmd slice
 // from Repo struct used for cloning a repo.
-func (r *Repo) CloneCmd() []string {
+func (r *Push) CloneCmd() []string {
 	return []string{
 		"git",
 		"clone",

@@ -18,13 +18,12 @@ import (
 // Docker represents docker container
 // strucure used for building proces
 type Docker struct {
-	ID             string
-	Stack          stack.Stack
-	Stream         chan string
-	Done           chan bool
-	CurrentCommand string
-	WG             *sync.WaitGroup
-	Repo           *github.Repo
+	ID         string
+	Stack      stack.Stack
+	Stream     chan string
+	Done       chan bool
+	WG         *sync.WaitGroup
+	GithubPush *github.Push
 }
 
 // runDetached runs container in detached mode
@@ -80,12 +79,6 @@ func (c *Docker) remove() error {
 
 // Write makes Docker conform to io.Writer
 func (c *Docker) Write(p []byte) (n int, err error) {
-	// TODO Create json payloads with
-	// current command, and p as body
-	if c.CurrentCommand != "" {
-		c.Stream <- "\n>> " + c.CurrentCommand + "\n"
-		c.CurrentCommand = ""
-	}
 	c.Stream <- string(p)
 	return len(p), nil
 }
@@ -143,8 +136,8 @@ func (c *Docker) Run() {
 	// TODO
 	// Setup .ssh keys for private repos (priority low)
 	// Clone the repo
-	cloneCmd := c.Repo.CloneCmd()
-	c.CurrentCommand = strings.Join(cloneCmd, " ")
+	cloneCmd := c.GithubPush.CloneCmd()
+	fmt.Fprintf(c, strings.Join(cloneCmd, " "))
 	err = c.execInteractive(cloneCmd)
 	if err != nil {
 		log.Println(err)
@@ -174,7 +167,8 @@ func (c *Docker) Run() {
 
 	for _, cmd := range build {
 		cmdSlice := strings.Split(cmd, " ")
-		c.CurrentCommand = cmd
+		// TODO Send json event with new command
+		fmt.Fprintf(c, ">> "+cmd)
 		err = c.execInteractive(cmdSlice)
 		if err != nil {
 			fmt.Fprintf(c, "\nBUILD FAILED!")
@@ -187,12 +181,12 @@ func (c *Docker) Run() {
 }
 
 // New creates and intializes new container
-func New(s stack.Stack, repo *github.Repo) *Docker {
+func New(s stack.Stack, push *github.Push) *Docker {
 	return &Docker{
-		Stack:  s,
-		Stream: make(chan string),
-		Done:   make(chan bool),
-		WG:     &sync.WaitGroup{},
-		Repo:   repo,
+		Stack:      s,
+		Stream:     make(chan string),
+		Done:       make(chan bool),
+		WG:         &sync.WaitGroup{},
+		GithubPush: push,
 	}
 }
