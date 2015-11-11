@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -19,16 +18,7 @@ import (
 
 var mq dispatch.PubSuber
 
-type fooWriter int
-
-func (f fooWriter) Write(p []byte) (int, error) {
-	fmt.Println(string(p))
-	return len(p), nil
-}
-
 func main() {
-	var fw fooWriter
-
 	mq, err := dispatch.NewRedis("redis:6379")
 	if err != nil {
 		log.Fatal(err)
@@ -82,7 +72,7 @@ func main() {
 			// Run the container
 			cnt.WG.Add(2)
 			go cnt.Run()
-			go cnt.Observe(fw)
+			go cnt.Observe(mq)
 
 			log.Printf("Waiting for %s queue to finish", push.RequestID)
 			// cnt.WG.Wait()
